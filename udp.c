@@ -136,14 +136,14 @@ int main(int argc, char *argv[]) {
             //As messagens pedidas no enunciado - corrigia-as faltava ler o RLI
             buffer[n] = '\0';
             if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RLI") == 0) {
-                if (strncmp(buffer, "OK", 2) == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
                     printf("Successfull login.\n");
                     is_logged_in = 1;
                 } 
-                else if (strncmp(buffer, "NOK", 3) == 0) {
+                else if (strncmp(status, "NOK", 3) == 0) {
                     printf("Incorrect login attempt.\n");
                 } 
-                else if (strncmp(buffer, "REG", 3) == 0) {
+                else if (strncmp(status, "REG", 3) == 0) {
                     printf("New user registered.\n");
                 } 
                 else if (strcmp(status, "ERR") == 0) {
@@ -173,17 +173,17 @@ int main(int argc, char *argv[]) {
             //As messagens pedidas no enunciado - corrigia-as faltava ler o RLO
             buffer[n] = '\0';
             if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RLO") == 0) {
-                if (strncmp(buffer, "OK", 2) == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
                     printf("Successfull logout.\n");
                     is_logged_in = 0;
                 } 
-                else if (strncmp(buffer, "NLG", 3) == 0) {
+                else if (strncmp(status, "NLG", 3) == 0) {
                     printf("User not logged in.\n");
                 } 
-                else if (strncmp(buffer, "UNR", 3) == 0) {
+                else if (strncmp(status, "UNR", 3) == 0) {
                     printf("Unknown user.\n");
                 }
-                else if (strncmp(buffer, "WRP", 3) == 0) {
+                else if (strncmp(status, "WRP", 3) == 0) {
                     printf("Wrong password.\n");
                 } 
                 else if (strcmp(status, "ERR") == 0) {
@@ -213,17 +213,17 @@ int main(int argc, char *argv[]) {
             buffer[n] = '\0';
             //As messagens pedidas no enunciado - corrigia-as faltava ler o RUR
             if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RUR") == 0) {
-                if (strncmp(buffer, "OK", 2) == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
                     printf("Successfull unregister.\n");
                     is_logged_in = 0;
                 } 
-                else if (strncmp(buffer, "NOK", 3) == 0) {
+                else if (strncmp(status, "NOK", 3) == 0) {
                     printf("User not logged in.\n");
                 } 
-                else if (strncmp(buffer, "UNR", 3) == 0) {
+                else if (strncmp(status, "UNR", 3) == 0) {
                     printf("Unknown user.\n");
                 } 
-                else if (strncmp(buffer, "WRP", 3) == 0) {
+                else if (strncmp(status, "WRP", 3) == 0) {
                     printf("Wrong password.\n");
                 } 
                 else if (strcmp(status, "ERR") == 0) {
