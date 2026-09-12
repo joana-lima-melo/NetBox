@@ -24,6 +24,7 @@ char message[256];
 char uid[7], 
 password[9], 
 extra[16];
+int is_logged_in = 0;
 
 int send_message(const char *message) {
     n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
@@ -54,6 +55,10 @@ int main(int argc, char *argv[]) {
 
     int opt;
     while ((opt = getopt(argc, argv, "m:n:p:")) != -1) {
+        if (peerport == NULL) { //adicionei isto pq é origatiorio ter peerport
+            fprintf(stderr, "Error: -m peerport is mandatory.\n");
+            exit(1);
+}
         switch (opt) {
             case 'm':
                 peerport = optarg;
@@ -88,6 +93,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (strcmp(command, "login") == 0) { // comando login
+            if (is_logged_in == 1 ) {//para evitar dar login quando ja estás logged in (se calhar foi isso que te aconteceu quando te deu aquele erro da password dar errada mesmo que nunca tivvesses feito login com esse UID)
+                printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
+                continue;
+            }
             if (sscanf(line, "login %s %s %s", uid, password, extra) != 2) {
                 printf("Uso: login UID password\n");
                 continue;
@@ -107,6 +116,7 @@ int main(int argc, char *argv[]) {
                 printf("Password inválida: deve ter exatamente 8 caracteres alfanuméricos\n");
                 continue;
             }
+            
 
             // Se chegou aqui, UID e password são válidos
             sprintf(message, "LIN %s %s %s\n", uid, password, peerport); // Tá no enunciado que a mensagem de login para o DS tem de ir com LIN
@@ -114,21 +124,60 @@ int main(int argc, char *argv[]) {
             addrlen = sizeof(addr);
             n = recvfrom(fd, buffer, 128, 0,
                     (struct sockaddr *)&addr, &addrlen);
-            if (n == -1)  exit(1);
+            
+            //o exit, freeaddinfo e close são só final com a flag exit para fechar o socket
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
 
-            write(1, "echo: ", 6);
-            write(1, buffer, n); // Ta no enunciado que se a resposta for OK, entao o user existe, 
-            // NOK é que a passaword ta errada e REg é que foi registrado novo user
+            //As messagens pedidas no enunciado
+            write(1, buffer, n);
+            if (strncmp(buffer, "OK", 2) == 0) {
+                printf("Successfull login.\n");
+                is_logged_in = 1;
+            } 
+            else if (strncmp(buffer, "NOK", 3) == 0) {
+                printf("Incorrect login attempt.\n");
+            } 
+            else if (strncmp(buffer, "REG", 3) == 0) {
+                printf("New user registered.\n");
+            }
+            
         }
-        //IGNORA A PARTIR DAQUI TAVA MUITO TIRED FUI DORMIR
-        if (strcmp(command, "logout") == 0) { // comando logout
-            send_message(line);
+        if (strcmp(command, "logout") == 0) { 
+            if (is_logged_in !=1 ) { //se o user não estiver logged in verifico primeiro localmente só no caso
+                printf("User not logged in.\n"); continue; 
+            }
+            sprintf(message, "LOU %s %s %s\n", uid, password, peerport); // Tá no enunciado que a mensagem de logout para o DS tem de ir com LOU
+            send_message(message);
+
+            addrlen = sizeof(addr);
+            n = recvfrom(fd, buffer, 128, 0,
+                    (struct sockaddr *)&addr, &addrlen);
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
+
+            //mensagems pedidas no enunciado
+            write(1, buffer, n);
+            if (strncmp(buffer, "OK", 2) == 0) {
+                printf("Successfull logout.\n");
+                is_logged_in = 0;
+            } else if (strncmp(buffer, "NLG", 3) == 0) {
+                printf("User not logged in.\n");
+            } else if (strncmp(buffer, "UNR", 3) == 0) {
+                printf("Unknown user.\n");
+            }
+            // comando logout
             freeaddrinfo(res);
             close(fd);
             return 0;
         }
 
-        if (strcmp(command, "unregister") == 0) { // comando unregister
+        if (strcmp(command, "unregister") == 0) {
+             // comando unregister
             send_message(line);
             freeaddrinfo(res);
             close(fd);
