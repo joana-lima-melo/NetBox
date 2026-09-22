@@ -274,6 +274,20 @@ int main(int argc, char *argv[]) {
             close(fd);
             exit(0);
         }
+
+        if (strcmp(command, "remove") == 0){
+            if (user.is_logged_in == 1 ) {//para evitar dar login quando ja estás logged in (se calhar foi isso que te aconteceu quando te deu aquele erro da password dar errada mesmo que nunca tivvesses feito login com esse UID)
+                printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
+                continue;
+            }
+
+            if (sscanf(line, "remove %s %s %s", user.uid, user.password, extra) != 2) {
+                printf("Uso: login UID password\n");
+                continue;
+            }
+
+        }
+
     }
 
     /*n = sendto(fd, "Hello", 7, 0, res->ai_addr, res->ai_addrlen);
