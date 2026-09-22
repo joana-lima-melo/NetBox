@@ -125,6 +125,11 @@ int main(int argc, char *argv[]) {
             continue; // linha vazia
         }
 
+        if(strcmp(command, "publish") == 0) {
+            printf("Comando publish não implementado neste código.\n");
+            continue;
+        }
+
         if (strcmp(command, "login") == 0) { // comando login
             if (user.is_logged_in == 1 ) {//para evitar dar login quando ja estás logged in (se calhar foi isso que te aconteceu quando te deu aquele erro da password dar errada mesmo que nunca tivvesses feito login com esse UID)
                 printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
