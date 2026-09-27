@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -11,15 +12,25 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <ctype.h>
 #define DEFAULT_DSPORT "59000"
 #define DEFAULT_DSIP "tejo.tecnico.ulisboa.pt"
-#define DEFAULT_DSPORT "59000"
+#define MAX_RESOURCES 50
+
+typedef struct resource{
+    char name[25];
+    long fsize;
+    char label[21];
+} Resource;
 
 typedef struct user {
     char uid[7];
     char password[9];
     int is_logged_in;
+    Resource resources[MAX_RESOURCES];
+    int num_resources;
 } User;
+
 
 int fd, errcode;
 ssize_t n;
@@ -38,6 +49,69 @@ int send_message(const char *message) {
         exit (1);
     }
     return 0;
+}
+
+int valida_filename(const char *filename) {
+    int len = strlen(filename);
+
+    // 1. Comprimento total: máximo 24 caracteres
+    if (len < 1 || len > 24) {
+        return 0;
+    }
+
+    // 2. Encontrar o último ponto (separador entre base e extensão)
+    const char *dot = strrchr(filename, '.');
+    if (dot == NULL) {
+        return 0; // não tem ponto nenhum
+    }
+
+    // 3. A extensão deve ter exatamente 3 caracteres
+    int ext_len = strlen(dot + 1); // dot aponta para o '.', dot+1 é o que vem a seguir
+    if (ext_len != 3) {
+        return 0;
+    }
+
+    // 4. A extensão deve ser só alfanumérica
+    for (int i = 0; i < 3; i++) {
+        if (!isalnum((unsigned char)dot[1 + i])) {
+            return 0;
+        }
+    }
+
+    // 5. A base (tudo antes do ponto) não pode estar vazia
+    int base_len = dot - filename; // nº de caracteres antes do ponto
+    if (base_len < 1) {
+        return 0;
+    }
+
+    // 6. A base só pode ter letras, dígitos, '-' e '_'
+    for (int i = 0; i < base_len; i++) {
+        char c = filename[i];
+        if (!isalnum((unsigned char)c) && c != '-' && c != '_') {
+            return 0;
+        }
+    }
+
+    return 1; // passou em todos os testes
+}
+
+int valida_label(const char *label) {
+    int len = strlen(label);
+
+    // 1. Comprimento total: máximo 20 caracteres
+    if (len < 1 || len > 20) {
+        return 0;
+    }
+
+    // 2. Todos os caracteres devem ser alfanuméricos ou '_'
+    for (int i = 0; i < len; i++) {
+        char c = label[i];
+        if (!isalnum((unsigned char)c) && c != '_') {
+            return 0;
+        }
+    }
+
+    return 1; // passou em todos os testes
 }
 
 void sigint_handler(int sig) {
@@ -126,8 +200,75 @@ int main(int argc, char *argv[]) {
         }
 
         if(strcmp(command, "publish") == 0) {
-            printf("Comando publish não implementado neste código.\n");
-            continue;
+            if (user.is_logged_in !=1 ) { //se o user não estiver logged in verifico primeiro localmente só no caso(tenho de perguntar a stora se faz senitdio tho)
+                printf("User not logged in.\n");
+                continue;
+            }
+
+            char filename[25];
+            long fsize;
+            char label[21];
+
+            if(sscanf(line, "publish %24s %20s %15s", filename, label, extra) != 2) {
+                printf("Uso: publish filename label\n");
+                continue;
+            }
+            if (!valida_filename(filename)) {
+                printf("Nome de ficheiro inválido.\n");
+                continue;
+            }
+
+            if (!valida_label(label)) {
+                printf("Label inválida.\n");
+                continue;
+            }
+
+            struct stat st;
+            if (stat(filename, &st) == -1) {
+                printf("Ficheiro não encontrado localmente.\n");
+                continue;
+            }
+            fsize = st.st_size;
+
+            sprintf(message, "PUB %s %s %s %ld %s\n", user.uid, user.password, filename, fsize, label);
+            send_message(message); 
+            addrlen = sizeof(addr);
+            n = recvfrom(fd, buffer, 128, 0,
+                    (struct sockaddr *)&addr, &addrlen);
+            
+            //o exit, freeaddinfo e close são só final com a flag exit para fechar o socket
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
+
+            buffer[n] = '\0';
+            if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RPB") == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
+                    printf("Successfull publication.\n");
+                    Resource *r = &user.resources[user.num_resources];
+                    strcpy(r->name, filename);
+                    r->fsize = fsize;
+                    strcpy(r->label, label);
+                    user.num_resources++;                   
+                } 
+                else if (strncmp(status, "NOK", 3) == 0) {
+                    printf("Unsuccessful publication.\n");
+                } 
+                else if (strncmp(status, "NLG", 3) == 0) {
+                    printf("User not logged in.\n"); 
+                }
+                else if (strcmp(status, "WRP") == 0) {
+                    printf("Incorrect password.\n");
+                }
+                else if(strcmp(status, "UNR") == 0) {
+                    printf("User not logged in.\n");
+                }
+                else if (strcmp(status, "ERR") == 0) {
+                    printf("Syntax or parameter error.\n");
+                } 
+            }
+
         }
 
         if (strcmp(command, "login") == 0) { // comando login
