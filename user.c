@@ -199,78 +199,6 @@ int main(int argc, char *argv[]) {
             continue; // linha vazia
         }
 
-        if(strcmp(command, "publish") == 0) {
-            if (user.is_logged_in !=1 ) { //se o user não estiver logged in verifico primeiro localmente só no caso(tenho de perguntar a stora se faz senitdio tho)
-                printf("User not logged in.\n");
-                continue;
-            }
-
-            char filename[25];
-            long fsize;
-            char label[21];
-
-            if(sscanf(line, "publish %24s %20s %15s", filename, label, extra) != 2) {
-                printf("Uso: publish filename label\n");
-                continue;
-            }
-            if (!valida_filename(filename)) {
-                printf("Nome de ficheiro inválido.\n");
-                continue;
-            }
-
-            if (!valida_label(label)) {
-                printf("Label inválida.\n");
-                continue;
-            }
-
-            struct stat st;
-            if (stat(filename, &st) == -1) {
-                printf("Ficheiro não encontrado localmente.\n");
-                continue;
-            }
-            fsize = st.st_size;
-
-            sprintf(message, "PUB %s %s %s %ld %s\n", user.uid, user.password, filename, fsize, label);
-            send_message(message); 
-            addrlen = sizeof(addr);
-            n = recvfrom(fd, buffer, 128, 0,
-                    (struct sockaddr *)&addr, &addrlen);
-            
-            //o exit, freeaddinfo e close são só final com a flag exit para fechar o socket
-            if (n == -1){
-                perror("Error receiving message from DS");
-                continue;
-            }
-
-            buffer[n] = '\0';
-            if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RPB") == 0) {
-                if (strncmp(status, "OK", 2) == 0) {
-                    printf("Successfull publication.\n");
-                    Resource *r = &user.resources[user.num_resources];
-                    strcpy(r->name, filename);
-                    r->fsize = fsize;
-                    strcpy(r->label, label);
-                    user.num_resources++;                   
-                } 
-                else if (strncmp(status, "NOK", 3) == 0) {
-                    printf("Unsuccessful publication.\n");
-                } 
-                else if (strncmp(status, "NLG", 3) == 0) {
-                    printf("User not logged in.\n"); 
-                }
-                else if (strcmp(status, "WRP") == 0) {
-                    printf("Incorrect password.\n");
-                }
-                else if(strcmp(status, "UNR") == 0) {
-                    printf("User not logged in.\n");
-                }
-                else if (strcmp(status, "ERR") == 0) {
-                    printf("Syntax or parameter error.\n");
-                } 
-            }
-
-        }
-
         if (strcmp(command, "login") == 0) { // comando login
             if (user.is_logged_in == 1 ) {//para evitar dar login quando ja estás logged in (se calhar foi isso que te aconteceu quando te deu aquele erro da password dar errada mesmo que nunca tivvesses feito login com esse UID)
                 printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
@@ -421,16 +349,178 @@ int main(int argc, char *argv[]) {
             exit(0);
         }
 
+        if(strcmp(command, "publish") == 0) {
+            if (user.is_logged_in !=1 ) { //se o user não estiver logged in verifico primeiro localmente só no caso(tenho de perguntar a stora se faz senitdio tho)
+                printf("User not logged in.\n");
+                continue;
+            }
+
+            char filename[25];
+            long fsize;
+            char label[21];
+
+            if(sscanf(line, "publish %24s %20s %15s", filename, label, extra) != 2) {
+                printf("Uso: publish filename label\n");
+                continue;
+            }
+            if (!valida_filename(filename)) {
+                printf("Nome de ficheiro inválido.\n");
+                continue;
+            }
+
+            if (!valida_label(label)) {
+                printf("Label inválida.\n");
+                continue;
+            }
+
+            struct stat st;
+            if (stat(filename, &st) == -1) {
+                printf("Ficheiro não encontrado localmente.\n");
+                continue;
+            }
+            fsize = st.st_size;
+
+            sprintf(message, "PUB %s %s %s %ld %s\n", user.uid, user.password, filename, fsize, label);
+            send_message(message); 
+            addrlen = sizeof(addr);
+            n = recvfrom(fd, buffer, 128, 0,
+                    (struct sockaddr *)&addr, &addrlen);
+            
+            //o exit, freeaddinfo e close são só final com a flag exit para fechar o socket
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
+
+            buffer[n] = '\0';
+            if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RPB") == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
+                    printf("Successfull publication.\n");
+                    Resource *r = &user.resources[user.num_resources];
+                    strcpy(r->name, filename);
+                    r->fsize = fsize;
+                    strcpy(r->label, label);
+                    user.num_resources++;                   
+                } 
+                else if (strncmp(status, "NOK", 3) == 0) {
+                    printf("Unsuccessful publication.\n");
+                } 
+                else if (strncmp(status, "NLG", 3) == 0) {
+                    printf("User not logged in.\n"); 
+                }
+                else if (strcmp(status, "WRP") == 0) {
+                    printf("Incorrect password.\n");
+                }
+                else if(strcmp(status, "UNR") == 0) {
+                    printf("User not logged in.\n");
+                }
+                else if (strcmp(status, "ERR") == 0) {
+                    printf("Syntax or parameter error.\n");
+                } 
+            }
+
+        }
+
         if (strcmp(command, "remove") == 0){
-            if (user.is_logged_in == 1 ) {//para evitar dar login quando ja estás logged in (se calhar foi isso que te aconteceu quando te deu aquele erro da password dar errada mesmo que nunca tivvesses feito login com esse UID)
+            if (user.is_logged_in != 1 ){ //tem de estar logged in
                 printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
                 continue;
             }
 
-            if (sscanf(line, "remove %s %s %s", user.uid, user.password, extra) != 2) {
-                printf("Uso: login UID password\n");
+            char filename[25];
+
+            if (sscanf(line, "remove %s %s", filename, extra) != 1) {
+                printf("Uso: remove filename\n");
                 continue;
             }
+
+            sprintf(message, "REM %s %s %s\n", user.uid, user.password, filename); // Tá no enunciado que a mensagem de logout para o DS tem de ir com LOU
+            send_message(message);
+
+            addrlen = sizeof(addr);
+            n = recvfrom(fd, buffer, 128, 0,
+                    (struct sockaddr *)&addr, &addrlen);
+
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
+
+            buffer[n] = '\0';
+            if (sscanf(buffer, "%s %s", reply_cmd, status) == 2 && strcmp(reply_cmd, "RRM") == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
+                    printf("Successfully removal.\n");                 
+                } 
+                else if (strncmp(status, "NOK", 3) == 0) {
+                    printf("Unsuccessful removal(possibly wrong user).\n");
+                } 
+                else if (strncmp(status, "NLG", 3) == 0) {
+                    printf("User not logged in.\n"); 
+                }
+                else if (strcmp(status, "WRP") == 0) {
+                    printf("Incorrect password.\n");
+                }
+                else if(strcmp(status, "UNR") == 0) {
+                    printf("User unregistered.\n");
+                }
+                else if (strcmp(status, "ERR") == 0) {
+                    printf("Syntax or parameter error.\n");
+                } 
+            
+            }
+
+
+        }
+
+        if (strcmp(command, "list") == 0){
+            if (user.is_logged_in == 1 ) {//não pode estar logged in
+                printf("Já existe um utilizador com sessão iniciada. Faz logout primeiro.\n");
+                continue;
+            }
+
+            sprintf(message, "LST\n");
+            send_message(message);
+
+            addrlen = sizeof(addr);
+            n = recvfrom(fd, buffer, 128, 0,
+                    (struct sockaddr *)&addr, &addrlen);
+
+            if (n == -1){
+                perror("Error receiving message from DS");
+                continue;
+            }
+
+            buffer[n+2048] = '\0';
+            int bytes_read= 0;
+            char filename[25];
+            if (sscanf(buffer, "%s %s%n", reply_cmd, status, &bytes_read) == 2 && strcmp(reply_cmd, "RLS") == 0) {
+                if (strncmp(status, "OK", 2) == 0) {
+
+                    char *ptr = buffer + bytes_read;
+                    int counter=0;
+                    int offset=0;
+                    while (counter < 50 && sscanf(ptr, "%24s%n", filename, &offset) == 1) {
+                        printf("%d: %s\n", counter + 1, filename);
+                        ptr += offset; //
+                        counter++;
+                    }
+                    
+                    if (counter == 0) {
+                        printf("No resources found.\n");
+                    }
+
+                    printf("Successfully listed.\n");                 
+                } 
+                else if (strncmp(status, "NOK", 3) == 0) {
+                    printf("No resources found.\n");
+                } 
+                
+                else if (strcmp(status, "ERR") == 0) {
+                    printf("Syntax or parameter error.\n");
+                } 
+            
+            }
+
 
         }
 
